@@ -1,0 +1,151 @@
+<?php
+
+/**
+ * Implementation of hook_example()
+ */
+function ildrupal_devel_exit() {
+  $dff = TRUE;
+
+  // Try not to break non html pages. [from new devel.module]
+  if (function_exists('drupal_get_http_header')) {
+    $header = drupal_get_http_header('content-type');
+    if ($header) {
+      $formats = array('xml', 'javascript', 'json', 'plain', 'image', 'application', 'csv', 'x-comma-separated-values');
+      foreach ($formats as $format) {
+        if (strstr($header, $format)) {
+          $dff = FALSE;
+        }
+      }
+    }
+  }
+
+  // Exclude AJAX Functionality from Ctools
+  if (arg(1) == 'ajax' || arg(3) == 'ajax') {
+    $dff = FALSE;
+  }
+
+  // Try not to break non html pages. [from new devel.module]
+  if (function_exists('drupal_get_http_header')) {
+    $header = drupal_get_http_header('content-type');
+    if ($header) {
+      $formats = array('xml', 'javascript', 'json', 'plain', 'image', 'application', 'csv', 'x-comma-separated-values');
+      foreach ($formats as $format) {
+        if (strstr($header, $format)) {
+          $dff = FALSE;
+        }
+      }
+    }
+  }
+
+  // Check with Devel if Installed
+  if (module_exists('devel')) {
+    if (drupal_is_cli()) {
+      $dff = FALSE;
+    }
+  }
+
+  global $_drupalforfirebug_enable_output;
+  if($_drupalforfirebug_enable_output !== TRUE) {
+    $dff = FALSE;
+  }
+
+  if ($dff) {
+    // Load Relevant Files and Register Shutdown
+    drupal_load('module', 'user');
+    register_shutdown_function('ildrupal_devel_shutdown');
+  }
+}
+
+/**
+ * Implementation of hook_page_alter()
+ */
+function ildrupal_devel_page_alter(&$page) {
+  global $_drupalforfirebug_enable_output;
+  $_drupalforfirebug_enable_output = TRUE;
+}
+
+
+/**
+ * Command Function to Record a Data Element to the Drupal Firebug Log
+ */
+if(!function_exists('firep')) {
+  function firep($element, $title = NULL) {
+    if ($title) {
+      ildrupal_devel_log('<strong>'.$title.':</strong>');
+    }
+    ildrupal_devel_log('<PRE>'. print_r($element, true) . '<br><br></PRE>', 'general');
+  }
+}
+
+/**
+ * Output Function to Return Hidden Div Containers in Footer
+ */
+function ildrupal_devel_shutdown() {
+  if (!user_access('Access Firebug Debug')) {
+    return;
+  }
+  $output = '<div style="display: none" id="drupalforfirebug_general">';
+  $output .= '<fieldset>';
+  $output .= '<legend>' . t('Drupal for Firebug General Messages') . '</legend>';
+  $general_messages = ildrupal_devel_get('general');
+  $output .= $general_messages;
+  if (!$general_messages) {
+    $output .= t('There were no messages sent to the general log. Please use "firep($item, $optional_title)" to output messages to this console.');
+  }
+  $output .= '</div>';
+  $output .= '<div style="display: none" id="drupalforfirebug_sql">';
+  ///$output .= drupalforfirebug_get_sql_log();
+  $output .= '</div>';
+  $output .= '<div style="display: none" id="drupalforfirebug_hook_form_alter">';
+  ///$output .= $form_alter_output = drupalforfirebug_get('hook_form_alter');
+  if (!$form_alter_output) { $output .= t('There was no form altering.'); }
+  $output .= '</div>';
+  $output .= '<div style="display: none" id="drupalforfirebug_hook_user">';
+  ///$output .= $user_output = drupalforfirebug_get('hook_user');
+  if (!$user_output) { $output .= t('There was no user processing.'); }
+  $output .= '</div>';
+  $output .= '<div style="display: none" id="drupalforfirebug_hook_nodeapi">';
+  ///$output .= $node_api_output = drupalforfirebug_get('hook_nodeapi');
+  if (!$node_api_output) { $output .= t('There was no node processing.'); }
+  $output .= '</div>';
+  $output .= '<div style="display: none" id="drupalforfirebug_hook_views">';
+  if (module_exists('views')) {
+    ///  $output .= $views_output = drupalforfirebug_get('hook_views');
+    if (!$views_output) { $output .= t('There was no views processing.'); }
+  } else {
+    $output .= t('The views module is not installed.');
+  }
+  $output .= '</div>';
+  $output .= '<div style="display: none" id="drupalforfirebug_hook_page_alter">';
+  ///$output .= $page_output = drupalforfirebug_get('hook_page_alter');
+  if (!$page_output) { $output .= t('There was no page processing.'); }
+  $output .= '</div>';
+  $output .= '<div style="display: none" id="drupalforfirebug_php">';
+  ///$output .= drupalforfirebug_get_php_exec_area();
+  $output .= '</div>';
+  print $output;
+  unset($GLOBALS['dfp_runtime']);
+}
+
+/**
+ * Output Function to Return the Results of the Log
+ */
+function ildrupal_devel_get($panetype) {
+  global $dfp_runtime;
+  $output = '';
+  if (isset($dfp_runtime['firebug_messages'][$panetype])) {
+    foreach($dfp_runtime['firebug_messages'][$panetype] as $message) {
+      $output .= '<div>' . $message .'</div>';
+    }
+    unset($dfp_runtime['firebug_messages'][$panetype]);
+    return $output;
+  }
+}
+
+/**
+ * API Function to Record a Message to the Drupal Firebug Log
+ */
+function ildrupal_devel_log($message, $type = 'general') {
+  global $dfp_runtime;
+  $dfp_runtime['firebug_messages'][$type][] = $message;
+}

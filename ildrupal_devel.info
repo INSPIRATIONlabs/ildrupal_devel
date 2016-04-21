@@ -1,0 +1,7 @@
+name = INSPIRATIONlabs devel
+description = Simple Drupal Development Helper as Drupal for Firebug Replacement
+package = INSPIRATIONlabs
+core = 7.x
+
+version = "7.x-1.x"
+project = "inspirationlabs"
